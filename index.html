@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Feed & Power the Robot!</title>
+<meta name="description" content="A kid-friendly nutrition game: balance healthy foods, sweets with permission, and brush your teeth!" />
+<style>
+  :root{
+    --bg:#e6f7ff;
+    --card:#ffffff;
+    --text:#0b3954;
+    --good:#28a745;
+    --warn:#f0ad4e;
+    --bad:#dc3545;
+    --ui:#4aa3df;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:system-ui,Arial,Segoe UI,sans-serif; color:var(--text);
+    background:linear-gradient(180deg,var(--bg),#f8fdff 40%);
+  }
+  header{padding:16px 20px; display:flex; align-items:center; gap:12px; justify-content:center}
+  header h1{margin:0; font-weight:800; letter-spacing:.3px}
+  .wrap{max-width:1100px; margin:0 auto; padding:12px}
+  .board{display:grid; grid-template-columns: 340px 1fr; gap:16px;}
+  .card{
+    background:var(--card); border-radius:18px; box-shadow:0 6px 24px rgba(0,0,0,.08);
+    padding:16px;
+  }
+
+  /* Robot area */
+  #stage{position:relative; min-height:320px; display:flex; align-items:center; justify-content:center; overflow:hidden}
+  #robot{
+    width:230px; height:270px; position:relative; transition:transform .5s ease;
+    filter:drop-shadow(0 8px 14px rgba(0,0,0,.18));
+  }
+  #robot svg{width:100%; height:100%}
+  .bug{position:absolute; font-size:28px; pointer-events:none; animation:pop .7s ease forwards}
+  @keyframes pop{0%{opacity:0; transform:scale(.5)} 40%{opacity:1} 100%{opacity:0; transform:scale(1.4) translateY(-10px)}}
+
+  /* HUD */
+  .meters{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px}
+  .meter{background:#f5fbff;border-radius:12px;padding:10px}
+  .meter .bar{height:10px; border-radius:8px; background:#e8eef3; overflow:hidden}
+  .meter .bar span{display:block; height:100%; background:linear-gradient(90deg,#6dd5ed,#2193b0)}
+  .meter h4{margin:0 0 6px 0; font-size:12px; text-transform:uppercase; letter-spacing:.8px; opacity:.8}
+
+  /* Food panel */
+  .foods h3{margin:0 0 10px}
+  .groups{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px}
+  .group{border:1px dashed #cfe8ff; border-radius:14px; padding:12px}
+  .group h4{margin:0 0 8px; font-size:14px; text-transform:uppercase; letter-spacing:.8px; opacity:.8}
+  .grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px}
+  button.food{
+    border:0; border-radius:12px; padding:10px 8px; font-size:16px; cursor:pointer;
+    background:#f2f9ff; transition:transform .06s ease, box-shadow .2s ease;
+    box-shadow:0 3px 0 #cfe8ff;
+  }
+  button.food:active{transform:translateY(2px); box-shadow:0 1px 0 #cfe8ff}
+  .food.bad{background:#fff5f6; box-shadow:0 3px 0 #ffd7dc}
+  .food.neutral{background:#f9fff2; box-shadow:0 3px 0 #e0f8b6}
+
+  /* Controls / message */
+  .controls{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:8px 0 6px}
+  label.switch{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; background:#f3f8ff; font-size:14px}
+  #brushBtn{
+    border:0; border-radius:999px; padding:8px 14px; background:var(--ui); color:white; cursor:pointer;
+    font-weight:700; letter-spacing:.3px;
+  }
+  #message{min-height:54px; margin-top:8px; padding:10px 12px; border-radius:12px; background:#f7fbff}
+  .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+
+  footer{padding:16px; text-align:center; font-size:12px; opacity:.7}
+
+  /* Accessibility */
+  button:focus-visible, #brushBtn:focus-visible {
+    outline: 3px solid #2193b0;
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  button { min-height: 44px; }
+  @media (max-width: 900px){
+    .board{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🤖 Feed & Power the Robot!</h1>
+  </header>
+
+  <div class="wrap board">
+
+    <!-- Left: Robot + Meters -->
+    <section class="card" id="stage">
+      <div id="robot" aria-label="Robot" role="img">
+        <!-- Lightweight SVG robot with visible brain, circuits, arms/legs -->
+        <svg viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- head -->
+          <rect x="60" y="10" rx="14" ry="14" width="100" height="70" fill="#4b6b88" />
+          <rect x="70" y="18" rx="10" ry="10" width="80" height="54" fill="#2a3f53" stroke="#89c2ff" stroke-width="2"/>
+          <!-- brain bubble -->
+          <rect x="70" y="18" rx="10" ry="10" width="80" height="22" fill="#1e2d3c"/>
+          <g>
+            <ellipse cx="110" cy="30" rx="30" ry="10" fill="#ffb84d"/>
+            <ellipse cx="110" cy="30" rx="24" ry="8" fill="#ffc76e" opacity=".8"/>
+          </g>
+          <!-- eyes -->
+          <circle cx="92" cy="46" r="8" fill="#ffd35a"/>
+          <circle cx="128" cy="46" r="8" fill="#ffd35a"/>
+          <!-- body -->
+          <rect x="40" y="90" rx="16" ry="16" width="140" height="110" fill="#4b6b88"/>
+          <rect x="52" y="102" rx="12" ry="12" width="116" height="86" fill="#2a3f53" stroke="#89c2ff" stroke-width="2"/>
+          <!-- circuitry -->
+          <g stroke="#53ffbd" stroke-width="2">
+            <path d="M70 120 h30 v20 h20 v20" />
+            <path d="M150 140 h-30 v14 h-18" />
+            <path d="M85 170 h40" />
+          </g>
+          <rect x="98" y="140" width="24" height="20" rx="4" fill="#ffd35a"/>
+          <!-- arms -->
+          <rect x="10" y="98" rx="8" ry="8" width="24" height="90" fill="#4b6b88"/>
+          <rect x="186" y="98" rx="8" ry="8" width="24" height="90" fill="#4b6b88"/>
+          <!-- legs -->
+          <rect x="70" y="204" rx="10" ry="10" width="30" height="48" fill="#4b6b88"/>
+          <rect x="120" y="204" rx="10" ry="10" width="30" height="48" fill="#4b6b88"/>
+        </svg>
+      </div>
+
+      <div style="width:100%; position:absolute; left:0; bottom:12px; padding:0 14px">
+        <div class="meters">
+          <div class="meter"><h4>Brain</h4><div class="bar"><span id="mBrain" style="width:20%"></span></div></div>
+          <div class="meter"><h4>Eyes</h4><div class="bar"><span id="mEyes" style="width:20%"></span></div></div>
+          <div class="meter"><h4>Energy</h4><div class="bar"><span id="mEnergy" style="width:40%"></span></div></div>
+          <div class="meter"><h4>Strength</h4><div class="bar"><span id="mStrength" style="width:20%"></span></div></div>
+          <div class="meter"><h4>Memory</h4><div class="bar"><span id="mMemory" style="width:20%"></span></div></div>
+          <div class="meter"><h4>Immunity</h4><div class="bar"><span id="mImmunity" style="width:10%"></span></div></div>
+          <div class="meter"><h4>Teeth</h4><div class="bar"><span id="mTeeth" style="width:80%"></span></div></div>
+        </div>
+        <div id="message" role="status" aria-live="polite">
+          Feed me good stuff! Parent-approved sweets are okay with balance — and don’t forget to <b>Brush Your Teeth</b>! 🪥
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Controls + Foods -->
+    <section class="card foods">
+      <div class="controls">
+        <label class="switch"><input type="checkbox" id="parentOK"> Parent said sweets are OK today</label>
+        <button id="brushBtn">🪥 Brush Teeth</button>
+      </div>
+
+      <div class="groups">
+        <!-- Healthy -->
+        <div class="group">
+          <h4>Healthy Powers</h4>
+          <div class="grid">
+            <button class="food" data-food="fish">🐟 Fish</button>
+            <button class="food" data-food="carrot">🥕 Carrot</button>
+            <button class="food" data-food="broccoli">🥦 Broccoli</button>
+            <button class="food" data-food="nuts">🥜 Nuts</button>
+            <button class="food" data-food="apple">🍎 Apple</button>
+            <button class="food" data-food="spinach">🥬 Spinach</button>
+            <button class="food" data-food="egg">🥚 Egg</button>
+            <button class="food" data-food="strawberry">🍓 Strawberry</button>
+          </div>
+        </div>
+
+        <!-- Neutral -->
+        <div class="group">
+          <h4>Neutral / Steady</h4>
+          <div class="grid">
+            <button class="food neutral" data-food="bread">🍞 Bread</button>
+            <button class="food neutral" data-food="salad">🥗 Salad</button>
+            <button class="food neutral" data-food="potato">🥔 Potato</button>
+            <button class="food neutral" data-food="milk">🥛 Milk</button>
+            <button class="food neutral" data-food="rice">🥖 Rice</button>
+            <button class="food neutral" data-food="sweetpotato">🍠 Sweet Potato</button>
+          </div>
+        </div>
+
+        <!-- Sweets -->
+        <div class="group">
+          <h4>Sweets (Balance + Permission!)</h4>
+          <div class="grid">
+            <button class="food bad" data-food="candy">🍬 Candy</button>
+            <button class="food bad" data-food="cake">🍰 Cake</button>
+            <button class="food bad" data-food="soda">🥤 Soda</button>
+            <button class="food bad" data-food="chocolate">🍫 Choc</button>
+            <button class="food bad" data-food="icecream">🍨 Ice Cream</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>Tip: Sweets are okay when a grown-up says yes and you’ve eaten healthy foods too — then brush your teeth! 🪥</footer>
+
+<script>
+/* --- STATE --- */
+const counters = {};
+const FOODS = [
+  // name, category, message, stats delta, extra
+  ["fish","healthy","Superfood! Healthy fats & iodine power my brain and memory!", {brain:+20, memory:+20}, {anim:"grow"}],
+  ["carrot","healthy","Night vision activated! I can see in the dark!", {eyes:+25}, {anim:"tilt"}],
+  ["broccoli","healthy","Strength + bug zap! I lift and blast germs!", {strength:+20, immunity:+15}, {bugs:true, anim:"pulse"}],
+  ["nuts","healthy","Memory + reflex boost! I remember secret codes!", {memory:+25}, {anim:"pulse"}],
+  ["apple","healthy","Steady energy from fiber! Zoom!", {energy:+20}, {anim:"hop"}],
+  ["spinach","healthy","Iron power: strength and endurance!", {strength:+20, energy:+10}, {anim:"grow"}],
+  ["egg","healthy","Protein helps me grow smart & strong!", {brain:+10, strength:+15}, {anim:"grow"}],
+  ["strawberry","healthy","Immunity up — bugs destroyed!", {immunity:+25}, {bugs:true, anim:"pulse"}],
+
+  ["bread","neutral","Quick fuel to move!", {energy:+12}, {anim:"hop"}],
+  ["salad","neutral","Veggies defend against germs!", {immunity:+15}, {bugs:true, anim:"pulse"}],
+  ["potato","neutral","Steady energy!", {energy:+14}, {anim:"hop"}],
+  ["milk","neutral","Calcium keeps my frame steady!", {strength:+10}, {anim:"pulse"}],
+  ["rice","neutral","Long-lasting energy!", {energy:+12}, {anim:"hop"}],
+  ["sweetpotato","neutral","Energy + a little vision boost!", {energy:+12, eyes:+6}, {anim:"hop"}],
+
+  // Sweets (require parent OK + healthy balance)
+  ["candy","sweet","Sugar rush… then crash! (Brush teeth!)", {energy:-10, teeth:-18}, {anim:"wobble"}],
+  ["cake","sweet","Too much cake makes my circuits wobbly! (Brush teeth!)", {energy:-12, teeth:-20}, {anim:"wobble"}],
+  ["soda","sweet","Zoom… then crash! (Brush teeth!)", {energy:-14, teeth:-22}, {anim:"wobble"}],
+  ["chocolate","sweet","Tasty, but balance! (Brush teeth!)", {energy:-8, teeth:-16}, {anim:"wobble"}],
+  ["icecream","sweet","Yum! Balance + permission only. (Brush teeth!)", {energy:-10, teeth:-20}, {anim:"wobble"}],
+];
+
+const STATS = {brain:20, eyes:20, energy:40, strength:20, memory:20, immunity:10, teeth:80}; // initial
+let healthyEaten = 0;
+
+/* --- HELPERS --- */
+const $ = (id)=>document.getElementById(id);
+function clamp(v,min=0,max=100){ return Math.max(min, Math.min(max, v)); }
+function setMeter(id,val){ $(id).style.width = clamp(val)+"%"; }
+function paintMeters(){
+  setMeter("mBrain", STATS.brain);
+  setMeter("mEyes", STATS.eyes);
+  setMeter("mEnergy", STATS.energy);
+  setMeter("mStrength", STATS.strength);
+  setMeter("mMemory", STATS.memory);
+  setMeter("mImmunity", STATS.immunity);
+  setMeter("mTeeth", STATS.teeth);
+  localStorage.setItem("robotStats", JSON.stringify(STATS));
+}
+function robotAnim(type){
+  const rob = $("robot");
+  const map = {
+    grow:"scale(1.18)",
+    tilt:"rotate(10deg)",
+    hop:"translateY(-10px)",
+    wobble:"rotate(8deg) scale(.9)",
+    pulse:"scale(1.12)"
+  };
+  rob.style.transform = map[type] || "scale(1.06)";
+  setTimeout(()=> rob.style.transform="scale(1) rotate(0) translate(0,0)", 700);
+}
+function bugsFX(){
+  const stage = $("stage");
+  for(let i=0;i<5;i++){
+    const b=document.createElement("div");
+    b.className="bug";
+    b.textContent="🦠💥";
+    b.style.left = (Math.random()* (stage.clientWidth-40)+10)+"px";
+    b.style.top  = (Math.random()* 180 + 10)+"px";
+    stage.appendChild(b);
+    setTimeout(()=>b.remove(), 800 + i*120);
+  }
+}
+function say(msg, tone=""){
+  const el = $("message");
+  el.className = tone;
+  el.innerHTML = msg;
+}
+
+/* --- MODERATION & RULES --- */
+function canEatSweet(name){
+  const parentOK = $("parentOK").checked;
+  if(!parentOK){
+    say("A grown-up needs to say yes for sweets today. ✅ Ask first!", "warn");
+    return false;
+  }
+  if(healthyEaten < 1){
+    say("Balance first! Eat a healthy food, then a sweet is okay.", "warn");
+    return false;
+  }
+  // per-item moderation
+  if((counters[name]||0) >= 2){
+    say(`Too much ${name} isn’t great. Pick something else or brush your teeth!`, "warn");
+    return false;
+  }
+  return true;
+}
+
+function moderationCheck(name){
+  counters[name] = (counters[name]||0) + 1;
+  if(counters[name] > 2){
+    say(`Oops! Too much ${name} can be bad for me — let’s switch it up!`, "warn");
+    robotAnim("wobble");
+    STATS.energy = clamp(STATS.energy - 6);
+    STATS.immunity = clamp(STATS.immunity - 4);
+    paintMeters();
+    return false;
+  }
+  return true;
+}
+
+/* --- CORE FEED --- */
+function applyDeltas(d){
+  for(const k in d){
+    STATS[k] = clamp(STATS[k] + d[k]);
+  }
+  STATS.energy = clamp(STATS.energy);
+  STATS.teeth = clamp(STATS.teeth);
+  paintMeters();
+}
+
+function feed(name){
+  const item = FOODS.find(f=>f[0]===name);
+  if(!item) return;
+  const [, category, msg, deltas, extra] = item;
+
+  if(category==="sweet" && !canEatSweet(name)) return;
+
+  if(!moderationCheck(name)) return;
+
+  if(category==="healthy"){ healthyEaten++; }
+
+  applyDeltas(deltas);
+
+  say(msg + (category==="sweet" ? " Don’t forget to <b>brush your teeth</b>! 🪥" : ""), category==="sweet" ? "warn" : "ok");
+  if(extra?.anim) robotAnim(extra.anim);
+  if(extra?.bugs) bugsFX();
+
+  if(category==="sweet"){
+    if(STATS.teeth <= 40){
+      say("Teeth meter is getting low. Time to brush! 🪥", "bad");
+    }
+  }
+}
+
+/* --- INIT --- */
+const saved = localStorage.getItem("robotStats");
+if(saved){ try{ Object.assign(STATS, JSON.parse(saved)); }catch(e){} }
+paintMeters();
+
+document.querySelectorAll("button.food").forEach(btn=>{
+  btn.addEventListener("click", ()=> feed(btn.dataset.food));
+  btn.setAttribute("aria-label", btn.textContent.trim() + " (feed)");
+});
+$("brushBtn").addEventListener("click", ()=>{
+  STATS.teeth = clamp(STATS.teeth + 30);
+  STATS.immunity = clamp(STATS.immunity + 5);
+  paintMeters();
+  say("All clean! Sparkly teeth and fresh breath! ✨🦷", "ok");
+  robotAnim("pulse");
+});
+</script>
+</body>
+</html>
